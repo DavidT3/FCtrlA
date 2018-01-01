@@ -54,6 +54,8 @@ def usage(v=False):  # print usage and quit
         print '\t\tOR "--dec": Declination of target (can be negative)'
         print '\t"-z": Redshift of target cluster in degrees (fk5 system)'
         print '\t"-R": R500 of cluster in kiloparsecs'
+        print '\t"-t": T_x of cluster in KeV'
+        print '\t"-n": nH of cluster'
         print
         print 'Additional Optional arguments:'
         print '\t"-j": enable job submission (see README for when this should be used)'
@@ -66,9 +68,9 @@ def usage(v=False):  # print usage and quit
         print '\t\tThis corresponds to a JSON keyword of F'
         print
         print '\nExamples:'
-        print '  python FatController.py -o 0201903501 -r 149.5916 --dec -11.0642 -z 0.1605 -R 1095'
-        print '    ^^ Abell 907 cluster ^^'
-        print '  python FatController.py -j session_log1463267285.96.log'
+        print 'python FatController.py -o 0201903501 -r 149.5916 --dec -11.0642 -z 0.1605 -R 1095 -t 5.43796 -n 0.0536 '
+        print '  ^^ Abell 907 cluster ^^'
+        print 'python FatController.py -j session_log1463267285.96.log'
         print
         print 'More information can be found in T. Lingard\'s MPhys report (albeit code outdated),'
         print 'or in the README.md file'
@@ -88,7 +90,7 @@ except IOError:
 def check_arguments():
     if len(sys.argv[1:]):
         try:
-            opts, args = getopt.getopt(sys.argv[1:], 'f:o:r:d:z:R:jmN:F:', ['help', 'dec='])
+            opts, args = getopt.getopt(sys.argv[1:], 'f:o:r:d:z:R:t:n:jmN:F:', ['help', 'dec='])
         except getopt.GetoptError:
             # unrecognized argument passed
             print 'getopt error'
@@ -135,6 +137,10 @@ def check_arguments():
                         return_dict['N'] = int(opts[provided_args.index('-N')][1])
                     if '-F' in provided_args:
                         return_dict['N'] = float(opts[provided_args.index('-F')][1])
+                    if '-t' in provided_args:
+                        return_dict['kT'] = float(opts[provided_args.index('-t')][1])
+                    if '-n' in provided_args:
+                        return_dict['nH'] = float(opts[provided_args.index('-n')][1])
 
                     return return_dict  # return a dictionary with session information
 
@@ -371,7 +377,6 @@ def phase1b(session):
             y=session['dec'],
             r500_as=session['r500 arcseconds'])
         )
-
     shell_code = [
         templates['xwindow_start'],
         templates['ds9_to_physical'].format(
@@ -684,7 +689,7 @@ def phase2c(session):
             f.close()
 
 
-def phase3(session, path_to_model):
+def phase3(session, path_to_model='/lustre/scratch/astro/dt237/new_massmod'):
     """
     Identify initial parameters. Create a template XSPEC script, run it and scrape the output
     :param session: dictionary, current session information (ra, dec, masking string, run options)
@@ -733,9 +738,9 @@ def phase3(session, path_to_model):
         kT = output2[0]
         nH = output2[6]
 
-    # save the values to our session
-    session['kT'] = kT
-    session['nH'] = nH
+        # save the values to our session
+        session['kT'] = kT
+        session['nH'] = nH
 
     # cd into the working directory
     os.chdir(wd)
@@ -819,8 +824,8 @@ def main():
     phase2b(cluster_info)  # conduct phase 2b
     phase2c(cluster_info)  # conduct phase 2c
 
-    path = '/lustre/scratch/inf/' + cluster_info['u_name'] + '/new_massmod'
-    phase3(cluster_info, path)   # conduct phase 3
+    #path = '/lustre/scratch/astro/' + cluster_info['u_name'] + '/new_massmod'
+    phase3(cluster_info) #, path)   # conduct phase 3
 
     if cluster_info.get('m500'):
         print 'Identified Cluster mass of {} M_solar'.format(cluster_info['m500'])
@@ -829,3 +834,38 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+"""############################# - Test Code  # This code creates full spectra from before the backscale/regroup
+
+wd = cluster_info['cwd']
+x = cluster_info['ra physical']
+y = cluster_info['dec physical']
+cir_spec = "evselect table={in_file} withspectrumset=yes spectrumset={out_file} " \
+           "energycolumn=PI spectralbinsize=5 withspecranges=yes specchannelmin=0 specchannelmax=20479 " \
+           "expression='(FLAG==0) && (PATTERN<=4) && ((X,Y) IN circle({x},{y},{radius}))'"
+
+subprocess.call(cir_spec.format(in_file=cluster_info['events list'], out_file=wd + '/test_full_spec_real_arf.fits'
+                                , x=x, y=y, radius=cluster_info['shells'][-1]), shell=True)  # Full spectra
+
+cp_str = 'cp {og_file} {cp_dest}'
+
+subprocess.call(cp_str.format(og_file=wd+'/test_full_spec_real_arf.fits', cp_dest=wd+'/test_full_spec_sixte_arf.fits'),
+                shell=True)
+
+sim_spec = fits.open(wd + '/test_full_spec_real_arf.fits', mode='update')
+hder = sim_spec[1].header
+hder.set('ANCRFILE', wd + '/arf_annulus0.arf')
+hder.set('RESPFILE', wd + '/rmf_annulus0.rmf')
+hder.set('BACKFILE', wd + '/background_spectrum.fits')
+sim_spec.close()
+
+sim_spec = fits.open(wd + '/test_full_spec_sixte_arf.fits', mode='update')
+hder = sim_spec[1].header
+hder.set('ANCRFILE', '/lustre/scratch/astro/dt237/XSIM/clmass_files/pn-med-10.arf')
+hder.set('RESPFILE', '/lustre/scratch/astro/dt237/XSIM/clmass_files/pn-med-10.rmf')
+hder.set('BACKFILE', wd + '/background_spectrum.fits')
+sim_spec.close()
+
+############################# - Test Code Ends"""  # Doesn't work very well because it doesn't remove other sources
+
