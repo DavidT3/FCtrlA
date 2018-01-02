@@ -311,7 +311,7 @@ def phase1a(session):
             pn_table=session['events list'],
             pn_image=wd+'/pn_image.fits'
         ),
-        templates['xwindow_start'],
+            templates['xwindow_start'],
         templates['ds9_to_fk5'].format(
             pn_image=templates['regions_file'].format(
                 obsID=session['ObsID'],
@@ -324,7 +324,6 @@ def phase1a(session):
 
     # print the generated shell code to the screen, save it, run it and log the output
     print_save_run('1a', shell_code, session)
-
     # We now need to remove (and store) the region containing the cluster of interest.
     # To do this, we find the region in the provided region file which is closest to our
     # cluster centre
@@ -782,13 +781,19 @@ def phase3(session, path_to_model='/lustre/scratch/astro/dt237/new_massmod'):
         if mass_str is not None:
             print 'Identified mass unit as', mass_str.group()
             model_mass_unit = float(mass_str.group())
+
         # search the log file for the m500 (in model units)
-        model_mass = float(clmass_out[[i for i, j in enumerate(clmass_out) if 'puts [massOfR' in j][-1]+1])
+        model_mass_limits = (clmass_out[[i for i, j in enumerate(clmass_out) if 'puts choochoo' in j][-1] - 26])
+        mass_split = model_mass_limits.split()
+        model_mass = float(mass_split[0])
+        low_mass_lim = float(mass_split[1])
+        high_mass_lim = float(mass_split[2])
 
         # if we find values for both the model mass unit in solar masses, and the m500 in model mass units
         if model_mass_unit != 0 and model_mass != 0:
             m500 = model_mass_unit*model_mass
-            # print "Identified mass of {} M_solar".format(model_mass_unit*model_mass)
+            m500_minus = m500 - (low_mass_lim * model_mass_unit)
+            m500_plus = (high_mass_lim * model_mass_unit) - m500
         else:
             print 'Could not find model mass' + (' unit' if model_mass_unit != 0 else '')
 
@@ -797,7 +802,9 @@ def phase3(session, path_to_model='/lustre/scratch/astro/dt237/new_massmod'):
 
     # if we have a value, save the m500 to the session
     if m500 != -1.0:
-        session['m500'] = m500
+        session['m500'] = '%e' % m500
+        session['m500_minus'] = '%e' % m500_minus
+        session['m500_plus'] = '%e' % m500_plus
 
 
 def main():
@@ -825,47 +832,15 @@ def main():
     phase2c(cluster_info)  # conduct phase 2c
 
     #path = '/lustre/scratch/astro/' + cluster_info['u_name'] + '/new_massmod'
-    phase3(cluster_info) #, path)   # conduct phase 3
+    phase3(cluster_info)   # conduct phase 3
 
     if cluster_info.get('m500'):
-        print 'Identified Cluster mass of {} M_solar'.format(cluster_info['m500'])
+        print('Identified Cluster mass of {} M_solar'.format(cluster_info['m500']))
+        print('With a lower mass limit of {} M_solar'.format(cluster_info['m500_minus']))
+        print('With an upper mass limit of {} M_solar'.format(cluster_info['m500_plus']))
     save_session(cluster_info)  # save the result of this session to a timestamped JSON file
 
 
 if __name__ == '__main__':
     main()
-
-
-"""############################# - Test Code  # This code creates full spectra from before the backscale/regroup
-
-wd = cluster_info['cwd']
-x = cluster_info['ra physical']
-y = cluster_info['dec physical']
-cir_spec = "evselect table={in_file} withspectrumset=yes spectrumset={out_file} " \
-           "energycolumn=PI spectralbinsize=5 withspecranges=yes specchannelmin=0 specchannelmax=20479 " \
-           "expression='(FLAG==0) && (PATTERN<=4) && ((X,Y) IN circle({x},{y},{radius}))'"
-
-subprocess.call(cir_spec.format(in_file=cluster_info['events list'], out_file=wd + '/test_full_spec_real_arf.fits'
-                                , x=x, y=y, radius=cluster_info['shells'][-1]), shell=True)  # Full spectra
-
-cp_str = 'cp {og_file} {cp_dest}'
-
-subprocess.call(cp_str.format(og_file=wd+'/test_full_spec_real_arf.fits', cp_dest=wd+'/test_full_spec_sixte_arf.fits'),
-                shell=True)
-
-sim_spec = fits.open(wd + '/test_full_spec_real_arf.fits', mode='update')
-hder = sim_spec[1].header
-hder.set('ANCRFILE', wd + '/arf_annulus0.arf')
-hder.set('RESPFILE', wd + '/rmf_annulus0.rmf')
-hder.set('BACKFILE', wd + '/background_spectrum.fits')
-sim_spec.close()
-
-sim_spec = fits.open(wd + '/test_full_spec_sixte_arf.fits', mode='update')
-hder = sim_spec[1].header
-hder.set('ANCRFILE', '/lustre/scratch/astro/dt237/XSIM/clmass_files/pn-med-10.arf')
-hder.set('RESPFILE', '/lustre/scratch/astro/dt237/XSIM/clmass_files/pn-med-10.rmf')
-hder.set('BACKFILE', wd + '/background_spectrum.fits')
-sim_spec.close()
-
-############################# - Test Code Ends"""  # Doesn't work very well because it doesn't remove other sources
 
