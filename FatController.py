@@ -6,6 +6,9 @@ For usage run:
 python FatController.py --help
 """
 # TODO: add checking of presence of files required for each step
+# TODO: integrate dynamic annuli into FCtrlA
+# TODO: add error logs so failure cases are easy to identify
+# TODO: integrate tx-r500 code into FCtrlA
 
 import os
 import sys
@@ -354,7 +357,7 @@ def phase1a(session):
         f.write('\n'.join(regions))
 
         # we leave a marker to identify the cluster of interest (we will use its position for
-        # centring the extracted spectra in Phase 2)
+        # centering the extracted spectra in Phase 2)
         f.write('\n{} # <-- this one here'.format(cluster_reg))
 
 
@@ -476,6 +479,14 @@ def phase2a(session):
             x_pos=session['ra physical'],
             y_pos=session['dec physical'],
             radius=session['shells'][0],
+            masking_string=session['masking string']
+        ),
+        templates['sas_circle_gen'].format(
+            pn_table=session['events list'],
+            outfile=wd + "/full_spec.fits",
+            x_pos=session['ra physical'],
+            y_pos=session['dec physical'],
+            radius=session['shells'][-1],
             masking_string=session['masking string']
         )
     ]
@@ -821,7 +832,7 @@ def main():
         obsID=cluster_info['ObsID'], pn_table="pn_exp1_clean_evts.fits"
     )
     cluster_info['XAPA regions'] = templates['regions_file'].format(
-        obsID=cluster_info['ObsID'], file="final_class_regions_REDO.reg"
+        obsID=cluster_info['ObsID'], file="pl"
     )
 
     phase1a(cluster_info)  # conduct phase 1a
