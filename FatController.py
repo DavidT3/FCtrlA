@@ -6,6 +6,9 @@ For usage run:
 python FatController.py --help
 """
 # TODO: add checking of presence of files required for each step
+# TODO: integrate dynamic annuli into FCtrlA
+# TODO: add error logs so failure cases are easy to identify
+# TODO: integrate tx-r500 code into FCtrlA
 
 import os
 import sys
