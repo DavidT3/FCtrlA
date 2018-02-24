@@ -314,7 +314,7 @@ def phase1a(session):
             pn_table=session['events list'],
             pn_image=wd+'/pn_image.fits'
         ),
-            templates['xwindow_start'],
+        templates['xwindow_start'],
         templates['ds9_to_fk5'].format(
             pn_image=templates['regions_file'].format(
                 obsID=session['ObsID'],
@@ -762,7 +762,7 @@ def phase3(session, path_to_model='/lustre/scratch/astro/dt237/new_massmod'):
     xspec_script = templates['clmass_script'].format(
         data_groups='\n'.join(data_groups),
         model_path=path_to_model,
-        model='monomass' if session.get('monotonic', False) else 'clmass',
+        model='monomass',  # if session.get('monotonic', False) else 'clmass',
         nH=nH,
         kT=kT,
         z=session['z'],
@@ -779,7 +779,7 @@ def phase3(session, path_to_model='/lustre/scratch/astro/dt237/new_massmod'):
     )
 
     # run the clmass script
-    print_save_run('3', [shell_code], session)
+    print_save_run('3', shell_code, session)
 
     m500 = -1.0
     try:
@@ -832,7 +832,7 @@ def main():
         obsID=cluster_info['ObsID'], pn_table="pn_exp1_clean_evts.fits"
     )
     cluster_info['XAPA regions'] = templates['regions_file'].format(
-        obsID=cluster_info['ObsID'], file="pl"
+        obsID=cluster_info['ObsID'], file="final_class_regions_REDO.reg"
     )
 
     phase1a(cluster_info)  # conduct phase 1a
