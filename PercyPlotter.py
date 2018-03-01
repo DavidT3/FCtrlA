@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import sys
 import os
@@ -5,6 +6,24 @@ import re
 import matplotlib.pyplot as plt
 import time
 import subprocess
+
+
+def rtemp_test(num_annuli=8, r500=1006.74607478, growth=1.4):
+    with open('clmass_output.log') as f:
+        lines = []
+        for line in f:
+            lines.append(line.split('\n')[0])
+    lines = [elem for elem in lines if elem != '']
+    par_names = ['kT{}'.format(chr(ascii)) for ascii in range(97, 97 + num_annuli)]
+    temps = []
+    temp_errors = []
+    for name in par_names:
+        rel_line = [elem for elem in lines if name in elem][-1]
+        temps.append(float(rel_line.split()[-3]))
+        temp_errors.append(float(rel_line.split()[-1]))
+    shells = [r500 / growth ** (num_annuli - i - 1) for i in range(num_annuli)]
+    plt.errorbar(shells, temps, yerr=temp_errors)
+    plt.show()
 
 
 def one_arg():  # When just the radius is input as an argument
@@ -145,8 +164,9 @@ def full_args():
         print e
         sys.exit(0)
 
+
 if __name__ == "__main__":
-    if len(sys.argv[1:]) == 0:
+    """if len(sys.argv[1:]) == 0:
         print 'No outer radius given, exiting'
         sys.exit(0)
     elif len(sys.argv[1:]) == 1:
@@ -166,5 +186,7 @@ if __name__ == "__main__":
         if (sys.argv[2])[(len(sys.argv[2]) - 4):] == '.xcm':
             full_args()
         else:
-            print('Secondary argument must be a valid XSPEC script')
+            print('Secondary argument must be a valid XSPEC script')"""
+
+    rtemp_test()
 
